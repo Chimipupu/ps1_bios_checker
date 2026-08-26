@@ -11,8 +11,15 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
 
 // ---------------------------------------------------
+#define PS1_BIOS_CHECKER_VERSION    0.1f
+#define CRC32_TBL_SIZE    256
+
+// NOTE: PS1のBIOSは通常512KB (524288 bytes)
+#define BIOS_FILE_SIZE_BYTE    (512 * 1024)
+
 typedef struct {
     uint32_t crc32;             // CRC32 期待値
     const char *p_ps1_name;     // PS1の型番名
@@ -30,29 +37,58 @@ const bios_crc32_t g_bios_crc32_tbl[] = {
 };
 const uint8_t BIOS_CRC32_TBL_CNT = sizeof(g_bios_crc32_tbl) / sizeof(g_bios_crc32_tbl[0]);
 
+static uint32_t s_crc32_tbl[CRC32_TBL_SIZE] = {0};
+static bool s_is_tbl_init = false;
+
+static void _crc32_tbl_init(void);
 static uint32_t _calc_crc32(const uint8_t *p_buf, size_t size);
 static void _check_bios_file(const char *p_filepath);
 // ---------------------------------------------------
 // [Static]
 
-// CRC32の計算関数
-static uint32_t _calc_crc32(const uint8_t *p_buf, size_t size)
+// CRC32テーブルの生成
+static void _crc32_tbl_init(void)
 {
     uint32_t crc;
-    size_t i;
-    size_t j;
+    uint32_t i;
+    uint32_t j;
 
-    crc = 0xFFFFFFFF;
-    for (i = 0; i < size; i++)
+    memset(&s_crc32_tbl[0], 0, sizeof(s_crc32_tbl));
+
+    for (i = 0; i < CRC32_TBL_SIZE; i++)
     {
-        crc ^= p_buf[i];
-        for (j = 0; j < 8; j++) {
+        crc = i;
+        for (j = 0; j < 8; j++)
+        {
             if (crc & 1) {
                 crc = (crc >> 1) ^ 0xEDB88320;
             } else {
                 crc = (crc >> 1);
             }
         }
+        s_crc32_tbl[i] = crc;
+    }
+
+    s_is_tbl_init = true;
+}
+
+// CRC32の計算関数
+static uint32_t _calc_crc32(const uint8_t *p_buf, size_t size)
+{
+    uint32_t crc;
+    size_t i;
+    uint8_t idx;
+
+    if (!s_is_tbl_init) {
+        _crc32_tbl_init();
+    }
+
+    crc = 0xFFFFFFFF;
+
+    for (i = 0; i < size; i++)
+    {
+        idx = (uint8_t)((crc ^ p_buf[i]) & 0xFF);
+        crc = s_crc32_tbl[idx] ^ (crc >> 8);
     }
 
     return ~crc;
@@ -82,11 +118,11 @@ static void _check_bios_file(const char *p_filepath)
     file_size = ftell(p_fp);
     fseek(p_fp, 0, SEEK_SET);
 
-    // NOTE: PS1のBIOSは通常512KB (524288 bytes)
-    if (file_size != 512 * 1024) {
+    // ファイルサイズチェック
+    if (file_size != BIOS_FILE_SIZE_BYTE) {
         printf("\33[33m[WARN] File Size Not 512KB (Size: %ld Byte)\n\33[0m", file_size);
     } else {
-        printf("\33[32m[INFO] File Size(= 512KB) OK! Size: %ld Byte\n", file_size);
+        printf("[INFO] File Size(= 512KB) OK! Size: %ld Byte\n", file_size);
     }
 
     p_buf = (uint8_t *)malloc((size_t)file_size);
@@ -108,7 +144,7 @@ static void _check_bios_file(const char *p_filepath)
     // CRC32の計算
     calc_crc = _calc_crc32(p_buf, (size_t)file_size);
     free(p_buf);
-    printf("\33[32m[INFO] Calc CRC32: 0x%08X\n\33[0m", calc_crc);
+    printf("[INFO] Calc CRC32: 0x%08X\n", calc_crc);
 
     // CRC32テーブルの検索
     for (i = 0; i < BIOS_CRC32_TBL_CNT; i++)
@@ -135,7 +171,14 @@ int main(int argc, char **p_argv)
         return 1;
     }
 
+    printf("------------------------------------------------------\n");
+    printf("\33[34mPS1 BIOS Checker v%.01f\n\33[0m", PS1_BIOS_CHECKER_VERSION);
+    printf("\33[34mDevelop by Chimipupu (https://github.com/Chimipupu/ps1_bios_checker)\n\33[0m");
+    printf("------------------------------------------------------\n");
+
     _check_bios_file(p_argv[1]);
+
+    printf("------------------------------------------------------\n");
 
     return 0;
 }
