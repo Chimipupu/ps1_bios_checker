@@ -20,20 +20,67 @@
 // NOTE: PS1のBIOSは通常512KB (524288 bytes)
 #define BIOS_FILE_SIZE_BYTE    (512 * 1024)
 
+// BIOSのCRC32、PS1の型番名、BIOS名のテーブル構造体
 typedef struct {
     uint32_t crc32;             // CRC32 期待値
     const char *p_ps1_name;     // PS1の型番名
     const char *p_bios_name;    // BIOS名
 } bios_crc32_t;
 
-// BIOSのCRC32、PS1の型番名、BIOS名のテーブル
-const bios_crc32_t g_bios_crc32_tbl[] = {
-    { 0x3B601FC8, "SCPH-1000", "ps-10j"    },
-    { 0x3539DEF6, "SCPH-3000", "ps-11j"    },
-    { 0xBC190209, "SCPH-3500", "ps-21j"    },
-    { 0xFF3EEB8C, "SCPH-5500", "ps-30j"    },
-    { 0xEC541CD0, "SCPH-7000", "ps-40j"    },
-    { 0xF2AF798B, "SCPH-100",  "psone-43j" }
+// 日本版 (NTSC-J)
+const bios_crc32_t g_bios_crc32_tbl_jpn[] = {
+    { 0x3B601FC8, "SCPH-1000",                  "ps-10j"    }, // BIOS: v1.0J
+    { 0x3539DEF6, "SCPH-3000",                  "ps-11j"    }, // BIOS: v1.1J
+    { 0xBC190209, "SCPH-3500",                  "ps-21j"    }, // BIOS: v2.1J
+    { 0x24FC7E17, "SCPH-5000",                  "ps-22j"    }, // BIOS: v2.2J
+    { 0xFF3EEB8C, "SCPH-5500",                  "ps-30j"    }, // BIOS: v3.0J
+    { 0xEC541CD0, "SCPH-7000/7500/9000",        "ps-40j"    }, // BIOS: v4.0J
+    { 0x1E68C234, "SCPH-9000",                  "ps-43j"    }, // BIOS: v4.3J
+    { 0xF2AF798B, "SCPH-100 (PS One)",          "psone-43j" }, // BIOS: v4.3J (PS One)
+};
+const uint8_t BIOS_CRC32_JPN_TBL_CNT = sizeof(g_bios_crc32_tbl_jpn) / sizeof(g_bios_crc32_tbl_jpn[0]);
+
+// 北米版 (NTSC-U/C)
+const bios_crc32_t g_bios_crc32_tbl_ntsc[] = {
+    { 0x55847D8C, "SCPH-1001",                  "ps-20a"    }, // BIOS: v2.0A
+    { 0xAFF00F2F, "SCPH-1001 / DTL-H1101",      "ps-21a"    }, // BIOS: v2.1A
+    { 0x37157331, "SCPH-1001 / DTL-H1201/3001", "ps-22a"    }, // BIOS: v2.2A
+    { 0x8D8CB7E4, "SCPH-5501/5503/7003",        "ps-30a"    }, // BIOS: v3.0A
+    { 0x502224B6, "SCPH-7001/7501/9001",        "ps-41a"    }, // BIOS: v4.1A
+    { 0x171BDCEC, "SCPH-101 (PS One)",          "psone-45a" }, // BIOS: v4.5A (PS One)
+};
+const uint8_t BIOS_CRC32_NTSC_TBL_CNT = sizeof(g_bios_crc32_tbl_ntsc) / sizeof(g_bios_crc32_tbl_ntsc[0]);
+
+// 欧州版 (PAL)
+const bios_crc32_t g_bios_crc32_tbl_pal[] = {
+    { 0x98AFA9DB, "SCPH-1002",                  "ps-20e"    }, // BIOS: v2.0E
+    { 0x86C30531, "SCPH-1002 / DTL-H1102",      "ps-21e"    }, // BIOS: v2.1E
+    { 0x1A25F706, "SCPH-1002 / DTL-H1202/3002", "ps-22e"    }, // BIOS: v2.2E
+    { 0xD786F0B9, "SCPH-5502/5552",             "ps-30e"    }, // BIOS: v3.0E
+    { 0x318178BF, "SCPH-7002/7502/9002",        "ps-41e"    }, // BIOS: v4.1E
+    { 0xE0DFB769, "SCPH-102 (PS One)",          "psone-44e" }, // BIOS: v4.4E (PS One)
+    { 0x5E6B56F5, "SCPH-102 (PS One) RevB",     "psone-45e" }, // BIOS: v4.5E (PS One)
+};
+const uint8_t BIOS_CRC32_PAL_TBL_CNT = sizeof(g_bios_crc32_tbl_pal) / sizeof(g_bios_crc32_tbl_pal[0]);
+
+// その他機種
+const bios_crc32_t g_bios_crc32_tbl_ext[] = {
+    { 0x32736F17, "SCPH-5903 (Video CD)",       "ps-30j_vcd"}, // BIOS: v3.0J (VCD搭載機)
+    { 0x4CE8FEE9, "DTL-H1000H/DTL-H1100",       "ps-11j_dbg"}, // BIOS: v1.1J (デバッギングステーション)
+    { 0x5C464BE0, "DTL-H1200 / DTL-H3000",      "ps-22j_dbg"}  // BIOS: v2.2J (ネットやろうぜ！ PS1)
+};
+const uint8_t BIOS_CRC32_EXT_TBL_CNT = sizeof(g_bios_crc32_tbl_ext) / sizeof(g_bios_crc32_tbl_ext[0]);
+
+typedef struct {
+    const bios_crc32_t *p_tbl;
+    uint8_t tbl_cnt;
+} bios_crc32_tbl_t;
+
+const bios_crc32_tbl_t g_bios_crc32_tbl[] = {
+    { &g_bios_crc32_tbl_jpn[0], BIOS_CRC32_JPN_TBL_CNT },
+    { &g_bios_crc32_tbl_ntsc[0], BIOS_CRC32_NTSC_TBL_CNT },
+    { &g_bios_crc32_tbl_pal[0], BIOS_CRC32_PAL_TBL_CNT },
+    { &g_bios_crc32_tbl_ext[0], BIOS_CRC32_EXT_TBL_CNT }
 };
 const uint8_t BIOS_CRC32_TBL_CNT = sizeof(g_bios_crc32_tbl) / sizeof(g_bios_crc32_tbl[0]);
 
@@ -101,8 +148,10 @@ static void _check_bios_file(const char *p_filepath)
     uint8_t *p_buf;
     long file_size;
     size_t read_size;
+    bios_crc32_t *p_tbl;
+    uint8_t tbl_cnt;
     uint32_t calc_crc;
-    size_t i;
+    size_t h, i;
     bool is_match;
 
     is_match = false;
@@ -147,14 +196,20 @@ static void _check_bios_file(const char *p_filepath)
     printf("[INFO] Calc CRC32: 0x%08X\n", calc_crc);
 
     // CRC32テーブルの検索
-    for (i = 0; i < BIOS_CRC32_TBL_CNT; i++)
+    for (h = 0; h < BIOS_CRC32_TBL_CNT; h++)
     {
-        if (g_bios_crc32_tbl[i].crc32 == calc_crc) {
-            printf("\33[32m[INFO] CRC32 Match! CRC32: 0x%08X\n\33[0m", g_bios_crc32_tbl[i].crc32);
-            printf("\33[32m[INFO] BIOS Type: %s\n\33[0m", g_bios_crc32_tbl[i].p_bios_name);
-            printf("\33[32m[INFO] PS1 Type: %s\n\33[0m", g_bios_crc32_tbl[i].p_ps1_name);
-            is_match = true;
-            break;
+        p_tbl = (bios_crc32_t *) g_bios_crc32_tbl[h].p_tbl;
+        tbl_cnt = g_bios_crc32_tbl[h].tbl_cnt;
+
+        for (i = 0; i < tbl_cnt; i++)
+        {
+            if (p_tbl[i].crc32 == calc_crc) {
+                printf("\33[32m[INFO] CRC32 Match! CRC32: 0x%08X\n\33[0m", p_tbl[i].crc32);
+                printf("\33[32m[INFO] BIOS Type: %s\n\33[0m", p_tbl[i].p_bios_name);
+                printf("\33[32m[INFO] PS1 Type: %s\n\33[0m", p_tbl[i].p_ps1_name);
+                is_match = true;
+                break;
+            }
         }
     }
 
