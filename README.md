@@ -1,35 +1,14 @@
-# PS1 BIOSチェッカー v0.1
+# PS1 BIOSチェッカー
 
-## 使い方
+![gui_picture](/ps1_bios_checker_gui.png)
 
-### ビルド方法
+
+## ビルド方法
 
 `gcc`でビルド
 
 ```shell
-gcc -o ps1_bios_checker ps1_bios_checker.c 
-```
-
-### 実行方法
-
-例) PS1のBIOS名が `PS1_BIOS.bin`の場合
-
-```shell
-./ps1_bios_checker PS1_BIOS.bin
-```
-### 実行例
-
-```shell
-------------------------------------------------------
-PS1 BIOS Checker v0.1
-Develop by chimipupu (https://github.com/Chimipupu/ps1_bios_checker)
-------------------------------------------------------
-[INFO] File Size(= 512KB) OK! Size: 524288 Byte
-[INFO] Calc CRC32: 0xEC541CD0
-[INFO] CRC32 Match! CRC32: 0xEC541CD0
-[INFO] BIOS Type: ps-40j
-[INFO] PS1 Type: SCPH-7000
-------------------------------------------------------
+gcc ps1_bios_checker.c -o ps1_bios_checker.exe -mwindows -lcomdlg32
 ```
 
 ## チェック対象のBIOS
