@@ -15,10 +15,11 @@
 
 // ---------------------------------------------------
 #define PS1_BIOS_CHECKER_VERSION    0.1f
-#define CRC32_TBL_SIZE    256
+#define CRC32_TBL_SIZE              256
+#define BIOS_BUF_SIZE_BYTE          (512 * 1024)
 
 // NOTE: PS1のBIOSは通常512KB (524288 bytes)
-#define BIOS_FILE_SIZE_BYTE    (512 * 1024)
+#define BIOS_FILE_SIZE_BYTE         BIOS_BUF_SIZE_BYTE
 
 // BIOSのCRC32、PS1の型番名、BIOS名のテーブル構造体
 typedef struct {
@@ -84,6 +85,7 @@ const bios_crc32_tbl_t g_bios_crc32_tbl[] = {
 };
 const uint8_t BIOS_CRC32_TBL_CNT = sizeof(g_bios_crc32_tbl) / sizeof(g_bios_crc32_tbl[0]);
 
+static uint8_t s_bios_buf[BIOS_BUF_SIZE_BYTE] = {0};
 static uint32_t s_crc32_tbl[CRC32_TBL_SIZE] = {0};
 static bool s_is_tbl_init = false;
 
@@ -145,9 +147,7 @@ static uint32_t _calc_crc32(const uint8_t *p_buf, size_t size)
 static void _check_bios_file(const char *p_filepath)
 {
     FILE *p_fp;
-    uint8_t *p_buf;
     long file_size;
-    size_t read_size;
     bios_crc32_t *p_tbl;
     uint8_t tbl_cnt;
     uint32_t calc_crc;
@@ -169,30 +169,18 @@ static void _check_bios_file(const char *p_filepath)
 
     // ファイルサイズチェック
     if (file_size != BIOS_FILE_SIZE_BYTE) {
-        printf("\33[33m[WARN] File Size Not 512KB (Size: %ld Byte)\n\33[0m", file_size);
+        fclose(p_fp);
+        printf("\33[31m[ERROR] File Size Not 512KB (Size: %ld Byte)\n\33[0m", file_size);
+        return;
     } else {
         printf("[INFO] File Size(= 512KB) OK! Size: %ld Byte\n", file_size);
     }
 
-    p_buf = (uint8_t *)malloc((size_t)file_size);
-    if (p_buf == NULL) {
-        printf("\33[31m[ERROR] Memory Malloc FAIL\n\33[0m");
-        fclose(p_fp);
-        return;
-    }
-
-    read_size = fread(p_buf, 1, (size_t)file_size, p_fp);
-    if (read_size != (size_t)file_size) {
-        printf("\33[31m[ERROR] BIOS File Read FAIL\n\33[0m");
-        free(p_buf);
-        fclose(p_fp);
-        return;
-    }
+    fread(&s_bios_buf[0], 1, (size_t)file_size, p_fp);
     fclose(p_fp);
 
     // CRC32の計算
-    calc_crc = _calc_crc32(p_buf, (size_t)file_size);
-    free(p_buf);
+    calc_crc = _calc_crc32(&s_bios_buf[0], (size_t)file_size);
     printf("[INFO] Calc CRC32: 0x%08X\n", calc_crc);
 
     // CRC32テーブルの検索
